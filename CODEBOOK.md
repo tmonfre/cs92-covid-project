@@ -66,7 +66,7 @@ Source: [Oxford Coronavirus Government Response Tracker USA State-level data](ht
 
 [Codebook provided by Oxford](https://github.com/OxCGRT/covid-policy-tracker/blob/master/documentation/codebook.md)
 
-We focuse on the [Containment and closure policies](https://github.com/OxCGRT/covid-policy-tracker/blob/master/documentation/codebook.md#containment-and-closure-policies) tracked by Oxford
+We focus on the [Containment and closure policies](https://github.com/OxCGRT/covid-policy-tracker/blob/master/documentation/codebook.md#containment-and-closure-policies) tracked by Oxford
 
 ### US Census Data:
 
