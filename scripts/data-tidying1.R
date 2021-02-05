@@ -5,12 +5,12 @@
 
 library(tidyverse)
 
-# Read in data ------------------------------------------------------------
-# Relative path of working directory is ../ (the project directory)
+# Note: Working directory is the project directory, which is ../ relative to this file
 
-dta <- read.csv("data/2020_US_Region_Mobility_Report.csv")
+# Mobility data -----------------------------------------------------------
 
-# Data wrangling ----------------------------------------------------------
+mobility_dta <- read.csv("data/2020_US_Region_Mobility_Report.csv")
+
 
 voluntary <- c("retail_and_recreation",
               "parks")
@@ -22,7 +22,7 @@ involuntary <- c("grocery_and_pharmacy",
 
 mobility_type <- c(voluntary, involuntary)
 
-mobility_summary <- dta %>% 
+mobility_summary <- mobility_dta %>% 
   group_by(sub_region_2, date) %>% 
   summarise(grocery_and_pharmacy = mean(grocery_and_pharmacy_percent_change_from_baseline, na.rm = TRUE),
             transit_stations = mean(transit_stations_percent_change_from_baseline, na.rm = TRUE),
@@ -78,3 +78,33 @@ ggplot(mobility_categorized, aes(date,
   geom_point() +
   scale_x_discrete(breaks = months)
 
+# Partisanship Data - 2020 Election ---------------------------------------
+
+election_dta <- read.csv("data/president_county_candidate.csv")
+
+election <- election_dta %>% 
+  group_by(county, state) %>% 
+  mutate(won = ifelse(won == "True", TRUE, FALSE),
+         votes_in_county = sum(total_votes),
+         vote_share = (total_votes/votes_in_county)) %>% 
+  ungroup()
+
+# COVID-19 Cases ----------------------------------------------------------
+
+# The data is already in a tidy format,
+# Next step is to see how we'll combine it with other datasets, and will further tidy from there
+covid_dta <- read.csv("data/covid-counties.csv")
+
+# Lockdown Data - Oxford Coronavirus Government Response Tracker ----------
+
+# Codebook for data: https://github.com/OxCGRT/covid-policy-tracker/blob/master/documentation/codebook.md
+lockdown_dta <- read.csv("data/lockdowns_by_state.csv")
+
+# Only keep metadata and containment/closure policies
+lockdowns <- lockdown_dta[1:29]
+
+# Census Data -------------------------------------------------------------
+
+# Already in a tidy format
+# Next step is to see how we'll combine it with other datasets, and will further tidy from there
+census_dta <- read.csv("data/census-population.csv")
