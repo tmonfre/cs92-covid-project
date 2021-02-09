@@ -68,7 +68,8 @@ months <- c("2020-03-01",
             "2020-09-01",
             "2020-10-01",
             "2020-11-01",
-            "2020-12-01")
+            "2020-12-01",
+            "2021-01-01")
 
 
 ggplot(mobility_categorized, aes(date, 
@@ -76,7 +77,14 @@ ggplot(mobility_categorized, aes(date,
                                  group = mobility_label, 
                                  color = mobility_label)) + 
   geom_point() +
-  scale_x_discrete(breaks = months)
+  geom_smooth() + 
+  scale_x_discrete(breaks = months) + 
+  scale_color_brewer(palette="Set2") +
+  labs(title = "United States Mobility Percent Change from Baseline, February 2020 to January 2021",
+       caption = "Data Source: Google",
+       x = "",
+       y = "Mean Percent Change from Google's Established Baseline",
+       color = "Mobility Type")
 
 # Partisanship Data - 2020 Election ---------------------------------------
 
