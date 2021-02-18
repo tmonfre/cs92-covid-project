@@ -166,4 +166,8 @@ dated_dta <- mobility %>%
 
 # Data frame with everything
 dta <- dated_dta %>% 
-  left_join(elections_census, by=c("state", "county"))
+  left_join(elections_census, by=c("state", "county")) %>% 
+  filter(state != "", county != "", !is.na(percent_change_from_baseline))
+
+# Write final dataset into csv
+write.csv(dta, "./data/combined_data.csv")
