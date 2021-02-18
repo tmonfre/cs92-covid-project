@@ -4,8 +4,21 @@
 # Load packages -----------------------------------------------------------
 
 library(tidyverse)
+library(lubridate)
 
 # Note: Working directory is the project directory, which is ../ relative to this file
+
+# Functions ---------------------------------------------------------------
+
+# Remove the word "County" from the datasets that mark counties as "___ County"
+remove_county_word <- function(county) {
+  if(grepl("County", county)) {
+    idx <- str_locate(county, " County") - 1
+    return(str_sub(county, 1, idx)[1])
+  } else {
+    return(county)
+  }
+}
 
 # Mobility data -----------------------------------------------------------
 
@@ -23,7 +36,7 @@ involuntary <- c("grocery_and_pharmacy",
 mobility_type <- c(voluntary, involuntary)
 
 mobility_summary <- mobility_dta %>% 
-  group_by(sub_region_2, date) %>% 
+  group_by(sub_region_1, sub_region_2, date) %>% 
   summarise(grocery_and_pharmacy = mean(grocery_and_pharmacy_percent_change_from_baseline, na.rm = TRUE),
             transit_stations = mean(transit_stations_percent_change_from_baseline, na.rm = TRUE),
             workplaces = mean(workplaces_percent_change_from_baseline, na.rm = TRUE),
@@ -45,12 +58,15 @@ mobility <- mobility_summary %>%
                names_to = "mobility_type", 
                values_to = "percent_change_from_baseline") %>% 
   mutate(mobility_label = ifelse(mobility_type %in% involuntary, "involuntary", "voluntary")) %>% 
-  group_by(date, sub_region_2, mobility_label) %>% 
+  group_by(date, sub_region_1, sub_region_2, mobility_label) %>% 
   summarize(percent_change_from_baseline = mean(percent_change_from_baseline, na.rm=TRUE)) %>% 
   ungroup() %>% 
   mutate(percent_change_from_baseline = ifelse(is.nan(percent_change_from_baseline), 
                                                NA, 
-                                               percent_change_from_baseline))
+                                               percent_change_from_baseline)) %>% 
+  rename(state = sub_region_1, county = sub_region_2)
+
+mobility$county = sapply(mobility$county, remove_county_word)
 
 # Very rough visualization of mobility over time - no conditioning on county
 
@@ -95,7 +111,18 @@ election <- election_dta %>%
   mutate(won = ifelse(won == "True", TRUE, FALSE),
          votes_in_county = sum(total_votes),
          vote_share = (total_votes/votes_in_county)) %>% 
-  ungroup()
+  ungroup() %>% 
+  filter(party %in% c("DEM", "REP")) %>% 
+  group_by(county, state) %>% 
+  mutate(margin = vote_share - min(vote_share)) %>%
+  filter(margin == max(margin)) %>%
+  # Following 2 lines ignore "REP" tags for tied votes - potential bias?
+  mutate(margin = ifelse(margin == 0 & party == "REP", NA, margin)) %>% 
+  filter(!is.na(margin)) %>% 
+  ungroup() %>% 
+  select(county, state, party, margin)
+
+election$county <- sapply(election$county, remove_county_word)
 
 # COVID-19 Cases ----------------------------------------------------------
 
@@ -109,10 +136,34 @@ covid_dta <- read.csv("data/covid-counties.csv")
 lockdown_dta <- read.csv("data/lockdowns_by_state.csv")
 
 # Only keep metadata and containment/closure policies
-lockdowns <- lockdown_dta[1:29]
+lockdowns <- lockdown_dta[1:29] %>%
+  rename(state = RegionName) %>% 
+  mutate(date = as.character(ymd(Date)))
 
 # Census Data -------------------------------------------------------------
 
-# Already in a tidy format
-# Next step is to see how we'll combine it with other datasets, and will further tidy from there
-census_dta <- read.csv("data/census-population.csv")
+
+census_dta <- read.csv("data/census-population.csv") 
+
+# Only keep county, state, and latest population estimate (2019)
+# Also clean up string and remove "County" from county names to match previous datasets
+census <- census_dta %>% 
+  select(county = County, state = State, popest_2019 = X2019) %>% 
+  mutate(state = str_trim(state))
+         
+census$county <- sapply(census$county, remove_county_word)
+
+# Join all data into 1 frame ----------------------------------------------
+
+# Data without dates (elections and census)
+elections_census <- election %>% 
+  left_join(census, by=c("county", "state"))
+
+# Data with dates (mobility, lockdowns, cases)
+dated_dta <- mobility %>% 
+  left_join(covid_dta, by=c("date", "state", "county")) %>% 
+  left_join(lockdowns, by=c("date", "state"))
+
+# Data frame with everything
+dta <- dated_dta %>% 
+  left_join(elections_census, by=c("state", "county"))
