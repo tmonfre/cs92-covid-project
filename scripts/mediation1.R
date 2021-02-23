@@ -10,11 +10,7 @@ library(mediation)
 # Load/wrangle data -------------------------------------------------------
 
 dta <- read.csv("data/combined_data.csv", stringsAsFactors = TRUE) %>% 
-  filter(!is.na(cases),
-         !is.na(margin),
-         !is.na(popest_2019),
-         month(date) == 4) %>% 
-  mutate(margin = ifelse(party == "REP", -1 * margin, margin))
+  filter(month(date) == 4) # downsample to run some tests
 
 med.fit <- lm(margin ~ percent_change_from_baseline +
                 cases + 
@@ -22,6 +18,6 @@ med.fit <- lm(margin ~ percent_change_from_baseline +
                 state + 
                 county + 
                 mobility_label +
-                C6_Stay.at.home.requirements +
+                lockdowns +
                 popest_2019, 
               data = dta)
