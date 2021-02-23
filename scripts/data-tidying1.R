@@ -118,9 +118,10 @@ election <- election_dta %>%
   filter(margin == max(margin)) %>%
   # Following 2 lines ignore "REP" tags for tied votes - potential bias?
   mutate(margin = ifelse(margin == 0 & party == "REP", NA, margin)) %>% 
-  filter(!is.na(margin)) %>% 
+  filter(!is.na(margin))%>% 
   ungroup() %>% 
-  select(county, state, party, margin)
+  mutate(margin = ifelse(party == "REP", margin * -1, margin)) %>% 
+  select(state, county, margin)
 
 election$county <- sapply(election$county, remove_county_word)
 
@@ -157,20 +158,33 @@ census$county <- sapply(census$county, remove_county_word)
 
 # Data without dates (elections and census)
 elections_census <- election %>% 
-  left_join(census, by=c("county", "state"))
+  inner_join(census, by=c("county", "state"))
 
 # Data with dates (mobility, lockdowns, cases)
 dated_dta <- mobility %>% 
   left_join(covid_dta, by=c("date", "state", "county")) %>% 
   left_join(lockdowns, by=c("date", "state"))
 
+regression_vars <- c("date",
+                     "state",
+                     "county",
+                     "margin",
+                     "percent_change_from_baseline",
+                     "cases",
+                     "mobility_label",
+                     "C6_Stay.at.home.requirements",
+                     "popest_2019")
+
 # Data frame with everything
 dta <- dated_dta %>% 
   left_join(elections_census, by=c("state", "county")) %>% 
   filter(state != "", 
          county != "", 
-         !is.na(percent_change_from_baseline), 
-         !is.na(cases))
+         !is.na(percent_change_from_baseline),
+         !is.na(cases),
+         !is.na(popest_2019)) %>%
+  select(all_of(regression_vars)) %>% 
+  rename(lockdowns = C6_Stay.at.home.requirements)
 
 # Write final dataset into csv
 write.csv(dta, "./data/combined_data.csv")
