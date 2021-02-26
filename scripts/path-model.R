@@ -7,7 +7,7 @@ library(ggdag)
 
 # Create relationships
 # CHANGE FROM V1 to V2: removed path from Lockdowns --> COVID Cases
-dag1 <- dagify(Cases ~ cp + ur + ivr + s + vmr,
+dag1 <- dagify(Cases ~ cp + ur + ivr + s,
                vmr ~ cp + ur + s + ld + Cases,
                ivr ~ ur,
                ld ~ Cases,
