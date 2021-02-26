@@ -66,7 +66,11 @@ mobility <- mobility_summary %>%
                                                percent_change_from_baseline)) %>% 
   rename(state = sub_region_1, county = sub_region_2)
 
-mobility$county = sapply(mobility$county, remove_county_word)
+mobility_foranalysis <- mobility %>% 
+  pivot_wider(names_from = mobility_label, values_from = percent_change_from_baseline) %>% 
+  filter(!is.na(voluntary), !is.na(involuntary))
+
+mobility_foranalysis$county = sapply(mobility_foranalysis$county, remove_county_word)
 
 # Very rough visualization of mobility over time - no conditioning on county
 
@@ -161,7 +165,7 @@ elections_census <- election %>%
   inner_join(census, by=c("county", "state"))
 
 # Data with dates (mobility, lockdowns, cases)
-dated_dta <- mobility %>% 
+dated_dta <- mobility_foranalysis %>% 
   left_join(covid_dta, by=c("date", "state", "county")) %>% 
   left_join(lockdowns, by=c("date", "state"))
 
@@ -169,9 +173,9 @@ regression_vars <- c("date",
                      "state",
                      "county",
                      "margin",
-                     "percent_change_from_baseline",
+                     "voluntary",
+                     "involuntary",
                      "cases",
-                     "mobility_label",
                      "C6_Stay.at.home.requirements",
                      "popest_2019")
 
@@ -180,7 +184,6 @@ dta <- dated_dta %>%
   left_join(elections_census, by=c("state", "county")) %>% 
   filter(state != "", 
          county != "", 
-         !is.na(percent_change_from_baseline),
          !is.na(cases),
          !is.na(popest_2019)) %>%
   select(all_of(regression_vars)) %>% 
