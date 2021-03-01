@@ -4,7 +4,6 @@
 # Initial settings --------------------------------------------------------
 
 library(tidyverse)
-library(lubridate)
 library(mediation)
 library(parallel)
 
@@ -15,13 +14,17 @@ replaceCommas<-function(x){
 }
 
 dta <- read.csv("data/combined_data.csv") %>% 
-  filter(month(date) == 4) # downsample to run some tests
+  filter(state %in% c("Alabama", "Wisconsin")) # downsample to run some tests
 
 dta$popest_2019 <- sapply(dta$popest_2019, replaceCommas)
 
+# do cases per 100,000 to factor in population
+dta <- dta %>% 
+  mutate(cases = (cases / popest_2019) * 100000) %>% 
+  dplyr::select(-popest_2019)
 
-dtalist <- dta %>% 
-  mutate(state = factor(state),) %>% 
+dtalist <- dta %>%
+  mutate(state = factor(state),) %>%
   group_split(state)
 
 # Run models --------------------------------------------------------------
@@ -31,8 +34,7 @@ mediation_analysis <- function(dataset) {
                   involuntary +
                   date + 
                   county +
-                  lockdowns +
-                  popest_2019, 
+                  lockdowns, 
                 data = dataset)
   
   out.fit <- lm(voluntary ~ cases +
@@ -40,15 +42,14 @@ mediation_analysis <- function(dataset) {
                   involuntary +
                   date + 
                   county +
-                  lockdowns +
-                  popest_2019, 
+                  lockdowns, 
                 data = dataset)
   
   med.out <- mediate(med.fit, out.fit, treat = "cases", mediator = "margin", sims = 1000, boot = TRUE)
   summary(med.out)
 }
 
-rslt <- mclapply(dtalist2, mediation_analysis, mc.cores = 3)
+rslt <- mclapply(dtalist, mediation_analysis, mc.cores = 3)
 
 # Run non-parallel
 # mediation_analysis(dta)
