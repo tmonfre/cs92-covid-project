@@ -15,21 +15,33 @@ replaceCommas<-function(x){
 }
 
 dta <- read.csv("data/combined_data.csv") %>% 
-  filter(month(date) == 4) # downsample to run some tests
+  filter(month(date) == 4,
+         county != "",
+         state != "",
+         !is.na(margin),
+         !is.na(lockdowns)) # downsample to run some tests
 
 dta$popest_2019 <- sapply(dta$popest_2019, replaceCommas)
 
+updateFactors <- function(x) {
+  return(x %>% 
+           filter(!is.na(county), !is.na(date)) %>% 
+           mutate(county = factor(county),
+                  county = droplevels(county),
+                  date = factor(date)))
+}
 
 dtalist <- dta %>% 
-  mutate(state = factor(state),) %>% 
-  group_split(state)
+  mutate(state = factor(state)) %>% 
+  group_split(state) %>% 
+  map(updateFactors)
 
 # Run models --------------------------------------------------------------
 
 mediation_analysis <- function(dataset) {
   med.fit <- lm(margin ~ cases + 
                   involuntary +
-                  date + 
+                  date +
                   county +
                   lockdowns +
                   popest_2019, 
@@ -38,17 +50,19 @@ mediation_analysis <- function(dataset) {
   out.fit <- lm(voluntary ~ cases +
                   margin +
                   involuntary +
-                  date + 
+                  date +
                   county +
                   lockdowns +
-                  popest_2019, 
+                  popest_2019,
                 data = dataset)
-  
-  med.out <- mediate(med.fit, out.fit, treat = "cases", mediator = "margin", sims = 1000, boot = TRUE)
-  summary(med.out)
+
+  med.out <- mediate(med.fit, out.fit, treat = "cases", mediator = "lockdowns", sims = 1000, boot = TRUE)
+  return(summary(med.out))
 }
 
-rslt <- mclapply(dtalist2, mediation_analysis, mc.cores = 3)
+mediation_analysis(dtalist[[1]])
+
+rslt <- mclapply(dtalist2, mediation_analysis, mc.cores = 4)
 
 # Run non-parallel
 # mediation_analysis(dta)
