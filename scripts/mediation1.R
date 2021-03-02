@@ -4,7 +4,7 @@
 # Initial settings --------------------------------------------------------
 
 library(tidyverse)
-library(lubridate)
+# library(lubridate) # Uncomment when limiting by date
 library(mediation)
 library(parallel)
 
@@ -14,47 +14,53 @@ replaceCommas<-function(x){
   x<-as.numeric(gsub("\\,", "", x))
 }
 
-dta <- read.csv("data/combined_data.csv") %>% 
+dta <- read.csv("data/combined_data.csv") # %>% 
   # filter(month(date) %in% c(4:5)) # downsample to run some tests
 
 dta$popest_2019 <- sapply(dta$popest_2019, replaceCommas)
 
-cleanUpData <- function(x) {
-  
-  county_counts <- x %>% 
-    group_by(county) %>% 
-    summarize(ccount = n()) %>% 
-    ungroup()
-  
-  date_counts <- x %>% 
-    group_by(date) %>% 
-    summarize(dcount = n()) %>% 
-    ungroup()
-  
-  x_dta <- x %>% 
-    left_join(county_counts, by="county") %>% 
-    left_join(date_counts, by="date") %>% 
-    filter(ccount >= 10,
-           dcount >= 10) %>% 
-    dplyr::select(county,
-                  state,
-                  voluntary,
-                  margin,
-                  cases,
-                  involuntary,
-                  date,
-                  lockdowns)
-  
-  return(x_dta)
-}
+cols <- c("date", "state", "county", "margin", "voluntary", "involuntary", "cases", "lockdowns")
 
-factorData <- function(x) {
+cleanUpData <- function(x) {
   x_factored <- x %>% 
     filter(!is.na(county), !is.na(date)) %>% 
     mutate(county = factor(county),
            county = droplevels(county),
            date = factor(date))
   
+  county_counts <- x %>% 
+    group_by(county) %>% 
+    mutate(ccount = n()) %>% 
+    ungroup() %>% 
+    filter(ccount >= 10)
+  
+  date_counts <- x %>% 
+    group_by(date) %>% 
+    mutate(dcount = n()) %>% 
+    ungroup() %>% 
+    filter(dcount >= 10)
+  
+  x_dta <- county_counts %>% 
+    inner_join(date_counts, by=cols) %>% 
+    group_by(county) %>% 
+    mutate(ccount = n()) %>% 
+    ungroup() %>% 
+    group_by(date) %>% 
+    mutate(dcount = n()) %>% 
+    ungroup() %>% 
+    filter(ccount >= 10 & dcount >= 10) %>% 
+    dplyr::select(all_of(cols))
+  
+  return(x_dta)
+}
+
+factorData <- function(x) {
+  x_factored <- x %>%
+    filter(!is.na(county), !is.na(date)) %>%
+    mutate(county = factor(county),
+           county = droplevels(county),
+           date = factor(date))
+
   return(x_factored)
 }
 
@@ -75,35 +81,70 @@ dtalist <- dta %>%
   purrr::discard(zeroRows) %>% # Get rid of empty tibbles
   map(factorData) # Properly factor the counties and dates based on the statewide data
 
-# dtalist <- dta %>%
-#   mutate(state = factor(state),) %>%
-#   group_split(state)
+rm(dta)
 
 # Run models --------------------------------------------------------------
 
 mediation_analysis <- function(dataset) {
   med.fit <- lm(margin ~ cases + 
                   involuntary +
+                  lockdowns +
                   date +
-                  county +
-                  lockdowns, 
+                  county,
                 data = dataset)
   
   out.fit <- lm(voluntary ~ cases +
                   margin +
                   involuntary +
+                  lockdowns +
                   date +
-                  county +
-                  lockdowns, 
+                  county,
                 data = dataset)
 
-  med.out <- mediate(med.fit, out.fit, treat = "cases", mediator = "margin", sims = 100, boot = TRUE)
+  med.out <- mediate(med.fit, out.fit, treat = "cases", mediator = "lockdowns", sims = 10, boot = TRUE)
   return(summary(med.out))
 }
 
-# Run parallel mediation analysis
-rslt <- mclapply(dtalist, mediation_analysis, mc.cores = 4)
 
+linear_reg <- function(dataset) {
+  # med.fit <- lm(margin ~ cases + 
+  #                 involuntary +
+  #                 lockdowns +
+  #                 date +
+  #                 county,
+  #               data = dataset)
+  
+  out.fit <- lm(voluntary ~ cases +
+                  margin +
+                  involuntary +
+                  lockdowns +
+                  date +
+                  county,
+                data = dataset)
+  
+  # med.out <- mediate(med.fit, out.fit, treat = "cases", mediator = "margin", sims = 10, boot = TRUE)
+  return(summary(out.fit))
+}
+
+mediation_analysis(dtalist[[1]])
+
+# Run parallel mediation analysis
+rslt <- mclapply(dtalist, mediation_analysis, mc.cores = 3)
+
+# Loop through and analyze 1 by 1
+rslt_looped <- list()
+for (idx in c(1:length(dtalist))) {
+  print(paste0('running analysis on subset ', idx))
+  rslt_looped[[idx]] <- mediation_analysis(dtalist[[idx]])
+}
+
+# rslt_loops <- list()
+# for (i in c(1:4)) {
+#   min_idx <- ((i - 1) * 10) + 1
+#   max_idx <- i * 10
+#   print(paste0("running on ", min_idx, " to ", max_idx))
+#   rslt_loops[[i]] <- mclapply(dtalist[min_idx:max_idx], mediation_analysis, mc.cores = 3)
+# }
 
 # Run non-parallel
 # mediation_analysis(dta)
