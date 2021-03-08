@@ -129,6 +129,19 @@ election <- election_dta %>%
 
 election$county <- sapply(election$county, remove_county_word)
 
+senate_election_dta <- read.csv("data/senate_data.csv")
+
+combined_election <- election %>% 
+  left_join(senate_election_dta, by = c("state", "county")) %>% 
+  select(-X) %>% 
+  rename(margin_election = margin.x, margin_senate = margin.y) %>% 
+  mutate(margin = ifelse(is.na(margin_senate), margin_election, margin_senate)) %>% 
+  select(state, county, margin)
+
+# uses senate returns for partisanship instead of presidential returns
+election <- combined_election
+
+
 # COVID-19 Cases ----------------------------------------------------------
 
 # The data is already in a tidy format,
