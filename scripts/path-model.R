@@ -34,8 +34,8 @@ tidydag <- dag1 %>%
                         "ld" = "Lockdowns"))
 
 locations <- data.frame(name = c("ivr", "Cases", "cp", "s", "ld", "ur", "vmr"),
-                        x_new = c(8.3, 8, 8.7, 8.2, 8.7, 8.45, 9),
-                        y_new = c(9.6, 9.5, 9.6, 9.4, 9.4, 9.4, 9.4))
+                        x_new = c(8.7, 8, 8.3, 8.2, 8.7, 8.45, 9),
+                        y_new = c(9.6, 9.5, 9.6, 9.4, 9.4, 9.4, 9.5))
 
 tidydag[[1]] <- tidydag[[1]] %>%
   left_join(locations, by="name")
@@ -53,7 +53,7 @@ tidydag %>%
   mutate(linetype = ifelse(direction == "<->", "dashed", "solid")) %>% 
 ggplot(aes(x = x, y = y, xend = xend, yend = yend)) + 
   geom_dag_point() + 
-  geom_dag_text() +
+  # geom_dag_text() +
   geom_dag_label_repel(aes(label = label)) +
   geom_dag_edges(aes(edge_linetype = linetype), 
                  show.legend = FALSE) +
