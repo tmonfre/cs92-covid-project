@@ -81,49 +81,26 @@ dtalist <- dta %>%
   purrr::discard(zeroRows) %>% # Get rid of empty tibbles
   map(factorData) # Properly factor the counties and dates based on the statewide data
 
-rm(dta)
-
 # Run models --------------------------------------------------------------
 
 mediation_analysis <- function(dataset) {
-  med.fit <- lm(margin ~ cases + 
+  med.fit <- lm(lockdowns ~ cases + 
                   involuntary +
-                  lockdowns +
                   date +
-                  county,
+                  county +
+                  margin, 
                 data = dataset)
   
   out.fit <- lm(voluntary ~ cases +
                   margin +
                   involuntary +
-                  lockdowns +
                   date +
-                  county,
+                  county +
+                  lockdowns,
                 data = dataset)
 
   med.out <- mediate(med.fit, out.fit, treat = "cases", mediator = "lockdowns", sims = 10, boot = TRUE)
   return(summary(med.out))
-}
-
-
-linear_reg <- function(dataset) {
-  # med.fit <- lm(margin ~ cases + 
-  #                 involuntary +
-  #                 lockdowns +
-  #                 date +
-  #                 county,
-  #               data = dataset)
-  
-  out.fit <- lm(voluntary ~ cases +
-                  margin +
-                  involuntary +
-                  lockdowns +
-                  date +
-                  county,
-                data = dataset)
-  
-  # med.out <- mediate(med.fit, out.fit, treat = "cases", mediator = "margin", sims = 10, boot = TRUE)
-  return(summary(out.fit))
 }
 
 mediation_analysis(dtalist[[1]])
@@ -138,13 +115,17 @@ for (idx in c(1:length(dtalist))) {
   rslt_looped[[idx]] <- mediation_analysis(dtalist[[idx]])
 }
 
-# rslt_loops <- list()
-# for (i in c(1:4)) {
-#   min_idx <- ((i - 1) * 10) + 1
-#   max_idx <- i * 10
-#   print(paste0("running on ", min_idx, " to ", max_idx))
-#   rslt_loops[[i]] <- mclapply(dtalist[min_idx:max_idx], mediation_analysis, mc.cores = 3)
-# }
+rslt_looped1 <- list()
+for (idx in c(1:20)) {
+  print(paste0('running analysis on subset ', idx))
+  rslt_looped1[[idx]] <- mediation_analysis(dtalist[[idx]])
+}
+
+rslt_looped2 <- list()
+for (idx in c(20:40)) {
+  print(paste0('running analysis on subset ', idx))
+  rslt_looped2[[idx]] <- mediation_analysis(dtalist[[idx]])
+}
 
 # Run non-parallel
 # mediation_analysis(dta)

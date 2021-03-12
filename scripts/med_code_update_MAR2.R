@@ -9,6 +9,7 @@ library(mediation)
 library(parallel) # Only if necessary.
 library(lme4) # IF we do random effects. 
 library(ggthemes)
+library(gridExtra)
 
 
 full_dta <- read.csv("data/combined_data.csv")
@@ -19,6 +20,8 @@ dat2 <- full_dta %>%
          state = factor(state),
          month = month(date))
 
+ggplot(dat2) + 
+  geom_point(aes(cs_p1k, involuntary))
 
 # CURRENT ISSUES:
 # In your code, mediator model basically only has cross-sectional variation.
@@ -179,35 +182,51 @@ med.fit.re2  <- lmer(margin ~ log(cs_p1k) + involuntary + lockdowns + (1|state) 
 out.fit.re2 <- lmer(voluntary ~ log(cs_p1k) + involuntary + lockdowns + (1|state), data = dat2)
 
 med.fit.re3  <- lmer(margin ~ log(cs_p1k) + involuntary + lockdowns + (1|county) , data = dat2)
-out.fit.re3 <- lmer(voluntary ~ log(cs_p1k) + involuntary + lockdowns + (1|county), data = dat2)
+out.fit.re3 <- lmer(voluntary ~ log(cs_p1k) + margin + involuntary + lockdowns + (1|county), data = dat2)
 
-summary(out.fit.re)
-summary(med.fit.re)
+summary(out.fit.re3)
+summary(med.fit.re3)
+
+med.out.re <- mediate(med.fit.re3, out.fit.re3, treat = "log(cs_p1k)", mediator = "margin", sims = 1000)
 
 # Analyzing p-values ------------------------------------------------------
 
-mediation_results <- data.frame("state" = fulldat_split[[1]][1, 'state'], 
-                                "ACME" = c(rslt[[1]][[3]]['d0']),
-                                "ACME.p" = c(rslt[[1]][[3]]['d0.p']),
-                                "ADE" = c(rslt[[1]][[3]]["z0"]),
-                                "ADE.p" = c(rslt[[1]][[3]]["z0.p"]))
+mediation_results <- data.frame(state = fulldat_split[[1]][1, 'state'], 
+                                ACME = c(rslt[[1]][[3]]['d0']),
+                                ACME.p = c(rslt[[1]][[3]]['d0.p']),
+                                ADE = c(rslt[[1]][[3]]["z0"]),
+                                ADE.p = c(rslt[[1]][[3]]["z0.p"]),
+                                Total = c(rslt[[1]][[3]]["tau.coef"]),
+                                Total.p = c(rslt[[1]][[3]]["tau.p"]))
+
+# sens <- list()
+# for (idx in c(1:length(fulldat_split))) {
+  # print(sens[[idx]][['rho.by']])
+# }
+
 for (idx in c(2:length(fulldat_split))) {
-  temp <- data.frame("state" = fulldat_split[[idx]][1, 'state'], 
-                     "ACME" = c(rslt[[idx]][[3]]['d0']),
-                     "ACME.p" = c(rslt[[idx]][[3]]['d0.p']),
-                     "ADE" = c(rslt[[idx]][[3]]["z0"]),
-                     "ADE.p" = c(rslt[[idx]][[3]]["z0.p"]))
+  temp <- data.frame(state = fulldat_split[[idx]][1, 'state'], 
+                     ACME = c(rslt[[idx]][[3]]['d0']),
+                     ACME.p = c(rslt[[idx]][[3]]['d0.p']),
+                     ADE = c(rslt[[idx]][[3]]["z0"]),
+                     ADE.p = c(rslt[[idx]][[3]]["z0.p"]),
+                     Total = c(rslt[[idx]][[3]]["tau.coef"]),
+                     Total.p = c(rslt[[idx]][[3]]["tau.p"]))
   mediation_results <- rbind(mediation_results, temp)
 }
+
+## Average, weighted for each state's sample size
+## Example of partial mediation, full mediation, no mediation
+# 1 table at most, subset of mediation outputs (average ACME, average ADE, prop mediated, total effect)
 
 mediation_results <- mediation_results %>% 
   rename(ACME = d0,
          ACME.p = d0.p,
          ADE = z0,
-         ADE.p = z0.p)
+         ADE.p = z0.p,
+         Total = tau.coef,
+         Total.p = tau.p)
 
-ggplot(mediation_results) +
-  geom_boxplot(aes(ACME))
 
 quartiles_acme <- quantile(mediation_results$ACME)
 iqr_acme <- quartiles_acme[4] - quartiles_acme[2]
@@ -215,5 +234,37 @@ lower_fence <- quartiles_acme[2] - (1.5 * iqr_acme)
 upper_fence <- quartiles_acme[4] + (1.5 * iqr_acme)
 
 ggplot(mediation_results) +
-  geom_boxplot(aes(ACME), outlier.shape = NA) + 
-  scale_x_continuous(limits = c(lower_fence, upper_fence))
+  geom_boxplot(aes(ACME), fill="#bccbcb") +
+  scale_y_continuous(labels = c()) +
+  labs(title = "Average Causal Mediation Effect",
+       x = "") +
+  guides(fill=FALSE) +
+  theme_minimal() +
+  theme(text = element_text(size = 18))
+
+ggplot(mediation_results) +
+  geom_boxplot(aes(ACME), fill="#bccbcb", outlier.shape = NA) + 
+  scale_x_continuous(limits = c(lower_fence, upper_fence)) + 
+  scale_y_continuous(labels = c()) +
+  labs(title = "Average Causal Mediation Effect, Outliers Removed",
+       x = "") +
+  theme_minimal() +
+  theme(text = element_text(size = 18))
+
+ggplot(mediation_results) +
+  geom_boxplot(aes(ADE), fill="#bccbcb") +
+  scale_y_continuous(labels = c()) +
+  labs(title = "Average Direct Effect",
+       x = "") +
+  guides(fill=FALSE) +
+  theme_minimal() +
+  theme(text = element_text(size = 18))
+
+ggplot(mediation_results) +
+  geom_boxplot(aes(ADE), fill="#bccbcb", outlier.shape = NA) + 
+  scale_x_continuous(limits = c(lower_fence, upper_fence)) + 
+  scale_y_continuous(labels = c()) +
+  labs(title = "Average Direct Effect, Outliers Removed",
+       x = "") +
+  theme_minimal() +
+  theme(text = element_text(size = 18))
