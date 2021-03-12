@@ -1,7 +1,26 @@
 # QSS 82/83 Team 3
 ## Codebook Version 1:
 
-Run [data-tidying1.R](./scripts/data-tidying1.R) to load all data into R
+Run [senate-race-tidying.R](./scripts/senate-race-tidying.R), then [data-tidying1.R](./scripts/data-tidying1.R) to load all data into and save a copy of [combined_data.csv](./data/combined_data.csv)
+
+### Data used in analysis:
+[Data](./data/combined_data.csv)
+
+Documentation:
+
+| Variable          | Description     | 
+| :-------------    | :---------- | 
+|`date`             | Data of data collection   |
+|`state`            | State of data |
+| `county`          | County of data |
+| `margin_election` | Democrat - Republican difference of vote share in 2020 Presidential Election |
+|`margin-senate`    | Democrat - Republican difference of vote share in most recent Senate elction out of 2016, 2018, and 2020 |
+|`voluntary`        | Google's `percent_change_in_baseline` mobility metric for voluntary mobility |
+|`involuntary`      | Google's `percent_change_in_baseline` mobility metrix for involuntary mobility |
+|`cases`            | Number of known COVID-19 cases |
+|`lockdowns`        | Presence of a state-mandated lockdown due to COVID-19 |
+|`popest_2019`      | United States Census Bureau's estimated population for the county in 2019 |
+
 
 ### Mobility Data:
 
@@ -16,7 +35,7 @@ Tidied data documentation:
 | Variable       | Description     | 
 | :------------- | :---------- | 
 |`date`          | Data of data collection   |
-| `sub_region_2` | County of data |
+| `county` | County of data |
 | `mobility_label` | Type of mobility (voluntary or involuntary)|
 |`percent_change_from_baseline`| Change in length of visits and stays compared to an arbitrary baseline calculcated by Google [(more info here)](https://www.google.com/covid19/mobility/data_documentation.html#about-this-data)|
 

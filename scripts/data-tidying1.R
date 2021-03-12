@@ -135,10 +135,8 @@ combined_election <- election %>%
   left_join(senate_election_dta, by = c("state", "county")) %>% 
   select(-X) %>% 
   rename(margin_election = margin.x, margin_senate = margin.y) %>% 
-  mutate(margin = ifelse(is.na(margin_senate), margin_election, margin_senate)) %>% 
-  select(state, county, margin)
+  dplyr::select(state, county, margin_election, margin_senate)
 
-# uses senate returns for partisanship instead of presidential returns
 election <- combined_election
 
 
@@ -185,7 +183,8 @@ dated_dta <- mobility_foranalysis %>%
 regression_vars <- c("date",
                      "state",
                      "county",
-                     "margin",
+                     "margin_election",
+                     "margin_senate",
                      "voluntary",
                      "involuntary",
                      "cases",
