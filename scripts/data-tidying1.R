@@ -130,11 +130,13 @@ election <- election_dta %>%
 election$county <- sapply(election$county, remove_county_word)
 
 senate_election_dta <- read.csv("data/senate_data.csv")
+senate_election_dta$county <- sapply(senate_election_dta$county, remove_county_word)
 
 combined_election <- election %>% 
   left_join(senate_election_dta, by = c("state", "county")) %>% 
   select(-X) %>% 
   rename(margin_election = margin.x, margin_senate = margin.y) %>% 
+  mutate(margin_senate = ifelse(is.na(margin_senate), margin_election, margin_senate)) %>% 
   dplyr::select(state, county, margin_election, margin_senate)
 
 election <- combined_election
@@ -173,7 +175,7 @@ census$county <- sapply(census$county, remove_county_word)
 
 # Data without dates (elections and census)
 elections_census <- election %>% 
-  inner_join(census, by=c("county", "state"))
+  left_join(census, by=c("county", "state"))
 
 # Data with dates (mobility, lockdowns, cases)
 dated_dta <- mobility_foranalysis %>% 
