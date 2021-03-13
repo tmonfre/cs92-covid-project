@@ -20,19 +20,16 @@ dat2 <- full_dta %>%
          state = factor(state),
          month = month(date))
 
-ggplot(dat2) + 
-  geom_point(aes(cs_p1k, involuntary))
+dta_pres <- dat2 %>% 
+  dplyr::select(-margin_senate) %>% 
+  rename(margin = margin_election)
 
-# CURRENT ISSUES:
-# In your code, mediator model basically only has cross-sectional variation.
-# Currently you have time and county fixed effects. 
-# Lockdowns and popest have dropped out. 
-# Solution 1: Adjust population to population per 100000. Drop popest.
-# Solution 2: We may want to consider a transformation of cases variable.
-# Solution 3: If we are considered
+dta_senate <- dat2 %>% 
+  dplyr::select(-margin_election) %>% 
+  rename(margin = margin_senate)
 
-##########
-# Some descriptives and plots of variables. 
+
+# Descriptives and plots of variables -------------------------------------
 
 
 # hist(dat2$voluntary)
@@ -68,25 +65,48 @@ ggplot(data = dat2, mapping = aes(x = involuntary)) +
 # hist(dat2$lockdowns) # Which Oxford index pieces go into this?
 table(dat2$lockdowns)
 
-# Check our basic OLS models to make sure they work. 
+rm(dat2)
 
+# Check our basic OLS models to make sure they work.  ---------------------
+
+# Presidential data
 med.fit <- lm(margin ~ cs_p1k+ 
                 involuntary +
                 lockdowns,
-              data = dat2)
+              data = dta_pres)
 
 
 out.fit <- lm(voluntary ~ margin + 
                 log(cs_p1k) + 
                 involuntary +
                 lockdowns,
-              data = dat2)
+              data = dta_pres)
 
 summary(med.fit)
 summary(out.fit)
 
 hist(med.fit$residuals)
 hist(out.fit$residuals)
+
+# Senate data
+med.fit <- lm(margin ~ cs_p1k+ 
+                involuntary +
+                lockdowns,
+              data = dta_pres)
+
+
+out.fit <- lm(voluntary ~ margin + 
+                log(cs_p1k) + 
+                involuntary +
+                lockdowns,
+              data = dta_pres)
+
+summary(med.fit)
+summary(out.fit)
+
+hist(med.fit$residuals)
+hist(out.fit$residuals)
+
 
 # Also not a bad idea to do some cross-validation.
 # Take random samples of 1-2000 from the data and re-estimate everything. 
@@ -98,7 +118,7 @@ cs_p1k_med_sum <- 0
 margin_out_sum <- 0
 
 for (i in 1:n_samples) {
-  sample_data <- dat2[sample(nrow(dat2), sample_size),]
+  sample_data <- dta_pres[sample(nrow(dta_pres), sample_size),]
   
   sample_med.fit <- lm(margin ~ cs_p1k + 
                   involuntary +
@@ -129,13 +149,16 @@ print(paste0("Point-estimate comparison of partisanship margin, between out on e
 print(paste0("Entire dataset: ", summary(out.fit)$coefficients[[2]]))
 print(paste0("Avg of samples: ", margin_out_sum / n_samples))
 
-##################################
-# Split data into list. 
 
-fulldat_split <- dat2 %>%
+# Split data into list ----------------------------------------------------
+
+pres_split <- dta_pres %>%
   group_by(state) %>%
   group_split()
 
+senate_split <- dta_senate %>%
+  group_by(state) %>%
+  group_split()
 
 # Create our own function for the 2 models and mediation analysis. 
 
@@ -165,24 +188,29 @@ med_models <- function(list){
 library(tictoc)
 
 tic()
-rslt <- fulldat_split %>%
+rslt_pres <- pres_split %>%
   map(., med_models) # This works. 
 toc() # 1260.281 sec elapsed. 21 minutes, approx. 
 
+
+tic()
+rslt_senate <- senate_split %>%
+  map(., med_models) # This works. 
+toc() # 1260.281 sec elapsed. 21 minutes, approx. 
 
 ##################################
 # EXAMPLE (re could be time or state/county)
 # One option: add random effects. IF we want to control for confounding variables 
 # ... affecting change in time or state/county. 
 
-med.fit.re  <- lmer(margin ~ log(cs_p1k) + involuntary + lockdowns + (1|date) , data = dat2)
-out.fit.re <- lmer(voluntary ~ log(cs_p1k) + involuntary + lockdowns + (1|date), data = dat2)
+med.fit.re  <- lmer(margin ~ log(cs_p1k) + involuntary + lockdowns + (1|date) , data = dta_pres)
+out.fit.re <- lmer(voluntary ~ log(cs_p1k) + involuntary + lockdowns + (1|date), data = dta_pres)
 
-med.fit.re2  <- lmer(margin ~ log(cs_p1k) + involuntary + lockdowns + (1|state) , data = dat2)
-out.fit.re2 <- lmer(voluntary ~ log(cs_p1k) + involuntary + lockdowns + (1|state), data = dat2)
+med.fit.re2  <- lmer(margin ~ log(cs_p1k) + involuntary + lockdowns + (1|state) , data = dta_pres)
+out.fit.re2 <- lmer(voluntary ~ log(cs_p1k) + involuntary + lockdowns + (1|state), data = dta_pres)
 
-med.fit.re3  <- lmer(margin ~ log(cs_p1k) + involuntary + lockdowns + (1|county) , data = dat2)
-out.fit.re3 <- lmer(voluntary ~ log(cs_p1k) + margin + involuntary + lockdowns + (1|county), data = dat2)
+med.fit.re3  <- lmer(margin ~ log(cs_p1k) + involuntary + lockdowns + (1|county) , data = dta_pres)
+out.fit.re3 <- lmer(voluntary ~ log(cs_p1k) + margin + involuntary + lockdowns + (1|county), data = dta_pres)
 
 summary(out.fit.re3)
 summary(med.fit.re3)
@@ -191,42 +219,103 @@ med.out.re <- mediate(med.fit.re3, out.fit.re3, treat = "log(cs_p1k)", mediator 
 
 # Analyzing p-values ------------------------------------------------------
 
-mediation_results <- data.frame(state = fulldat_split[[1]][1, 'state'], 
-                                ACME = c(rslt[[1]][[3]]['d0']),
-                                ACME.p = c(rslt[[1]][[3]]['d0.p']),
-                                ADE = c(rslt[[1]][[3]]["z0"]),
-                                ADE.p = c(rslt[[1]][[3]]["z0.p"]),
-                                Total = c(rslt[[1]][[3]]["tau.coef"]),
-                                Total.p = c(rslt[[1]][[3]]["tau.p"]))
+output_pres <- data.frame(state = pres_split[[1]][1, 'state'],
+                          size = nrow(pres_split[[1]]),
+                          ACME = c(rslt_pres[[1]][[3]]['d0']),
+                          ACME.p = c(rslt_pres[[1]][[3]]['d0.p']),
+                          ADE = c(rslt_pres[[1]][[3]]["z0"]),
+                          ADE.p = c(rslt_pres[[1]][[3]]["z0.p"]),
+                          Total = c(rslt_pres[[1]][[3]]["tau.coef"]),
+                          Total.p = c(rslt_pres[[1]][[3]]["tau.p"]),
+                          prop_med = c(rslt_pres[[idx]][[3]]["n0"]),
+                          prop_med.p = c(rslt_pres[[idx]][[3]]["n0.p"]))
+
+output_senate <- data.frame(state = senate_split[[1]][1, 'state'],
+                            size = nrow(senate_split[[1]]),
+                            ACME = c(rslt_senate[[1]][[3]]['d0']),
+                            ACME.p = c(rslt_senate[[1]][[3]]['d0.p']),
+                            ADE = c(rslt_senate[[1]][[3]]["z0"]),
+                            ADE.p = c(rslt_senate[[1]][[3]]["z0.p"]),
+                            Total = c(rslt_senate[[1]][[3]]["tau.coef"]),
+                            Total.p = c(rslt_senate[[1]][[3]]["tau.p"]),
+                            prop_med = c(rslt_senate[[1]][[3]]["n0"]),
+                            prop_med.p = c(rslt_senate[[1]][[3]]["n0.p"]))
 
 # sens <- list()
 # for (idx in c(1:length(fulldat_split))) {
   # print(sens[[idx]][['rho.by']])
 # }
 
-for (idx in c(2:length(fulldat_split))) {
-  temp <- data.frame(state = fulldat_split[[idx]][1, 'state'], 
-                     ACME = c(rslt[[idx]][[3]]['d0']),
-                     ACME.p = c(rslt[[idx]][[3]]['d0.p']),
-                     ADE = c(rslt[[idx]][[3]]["z0"]),
-                     ADE.p = c(rslt[[idx]][[3]]["z0.p"]),
-                     Total = c(rslt[[idx]][[3]]["tau.coef"]),
-                     Total.p = c(rslt[[idx]][[3]]["tau.p"]))
-  mediation_results <- rbind(mediation_results, temp)
+for (idx in c(2:length(pres_split))) {
+  temp_p <- data.frame(state = pres_split[[idx]][1, 'state'], 
+                       size = nrow(pres_split[[idx]]),
+                       ACME = c(rslt_pres[[idx]][[3]]['d0']),
+                       ACME.p = c(rslt_pres[[idx]][[3]]['d0.p']),
+                       ADE = c(rslt_pres[[idx]][[3]]["z0"]),
+                       ADE.p = c(rslt_pres[[idx]][[3]]["z0.p"]),
+                       Total = c(rslt_pres[[idx]][[3]]["tau.coef"]),
+                       Total.p = c(rslt_pres[[idx]][[3]]["tau.p"]),
+                       prop_med = c(rslt_pres[[idx]][[3]]["n0"]),
+                       prop_med.p = c(rslt_pres[[idx]][[3]]["n0.p"]))
+  output_pres <- rbind(output_pres, temp_p)
+  
+  temp_s <- data.frame(state = senate_split[[idx]][1, 'state'],
+                       size = nrow(senate_split[[idx]]),
+                       ACME = c(rslt_senate[[idx]][[3]]['d0']),
+                       ACME.p = c(rslt_senate[[idx]][[3]]['d0.p']),
+                       ADE = c(rslt_senate[[idx]][[3]]["z0"]),
+                       ADE.p = c(rslt_senate[[idx]][[3]]["z0.p"]),
+                       Total = c(rslt_senate[[idx]][[3]]["tau.coef"]),
+                       Total.p = c(rslt_senate[[idx]][[3]]["tau.p"]),
+                       prop_med = c(rslt_senate[[idx]][[3]]["n0"]),
+                       prop_med.p = c(rslt_senate[[idx]][[3]]["n0.p"]))
+  
+  output_senate <- rbind(output_senate, temp_s)
 }
 
 ## Average, weighted for each state's sample size
 ## Example of partial mediation, full mediation, no mediation
 # 1 table at most, subset of mediation outputs (average ACME, average ADE, prop mediated, total effect)
 
-mediation_results <- mediation_results %>% 
+output_pres <- output_pres %>% 
   rename(ACME = d0,
          ACME.p = d0.p,
          ADE = z0,
          ADE.p = z0.p,
          Total = tau.coef,
-         Total.p = tau.p)
+         Total.p = tau.p,
+         prop_med = n0,
+         prop_med.p = n0.p)
 
+output_senate <- output_senate %>% 
+  rename(ACME = d0,
+         ACME.p = d0.p,
+         ADE = z0,
+         ADE.p = z0.p,
+         Total = tau.coef,
+         Total.p = tau.p,
+         prop_med = n0,
+         prop_med.p = n0.p)
+
+avg_acme_pres <- output_pres %>% 
+  mutate(acme_weight = ACME * size,
+         ade_weight = ADE * size,
+         total_weight = Total * size,
+         prop_weight = prop_med * size) %>% 
+  summarise(avg_acme = sum(acme_weight) / sum(size),
+            avg_ade = sum(ade_weight) / sum(size),
+            avg_tot = sum(total_weight) / sum(size),
+            avg_prop = sum(prop_weight) / sum(size))
+
+avg_acme_senate <- output_senate %>% 
+  mutate(acme_weight = ACME * size,
+         ade_weight = ADE * size,
+         total_weight = Total * size,
+         prop_weight = prop_med * size) %>% 
+  summarise(avg_acme = sum(acme_weight) / sum(size),
+            avg_ade = sum(ade_weight) / sum(size),
+            avg_tot = sum(total_weight) / sum(size),
+            avg_prop = sum(prop_weight) / sum(size))
 
 quartiles_acme <- quantile(mediation_results$ACME)
 iqr_acme <- quartiles_acme[4] - quartiles_acme[2]
