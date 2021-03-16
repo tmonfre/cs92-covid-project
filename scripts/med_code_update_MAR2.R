@@ -342,12 +342,12 @@ plot_grid(med_plot_1, med_plot_2, med_plot_3, ncol=3)
 
 # Plot to show range of ACMEs in slide deck
 
-quartiles_acme <- quantile(avg_acme_pres$ACME)
+quartiles_acme <- quantile(output_pres$ACME)
 iqr_acme <- quartiles_acme[4] - quartiles_acme[2]
 lower_fence <- quartiles_acme[2] - (1.5 * iqr_acme)
 upper_fence <- quartiles_acme[4] + (1.5 * iqr_acme)
 
-ggplot(mediation_results) +
+ggplot(output_pres) +
   geom_boxplot(aes(ACME), fill="#bccbcb") +
   scale_y_continuous(labels = c()) +
   labs(title = "Average Causal Mediation Effect",
@@ -356,7 +356,7 @@ ggplot(mediation_results) +
   theme_minimal() +
   theme(text = element_text(size = 18))
 
-ggplot(mediation_results) +
+ggplot(output_pres) +
   geom_boxplot(aes(ACME), fill="#bccbcb", outlier.shape = NA) + 
   scale_x_continuous(limits = c(lower_fence, upper_fence)) + 
   scale_y_continuous(labels = c()) +
@@ -365,7 +365,7 @@ ggplot(mediation_results) +
   theme_minimal() +
   theme(text = element_text(size = 18))
 
-ggplot(mediation_results) +
+ggplot(output_pres) +
   geom_boxplot(aes(ADE), fill="#bccbcb") +
   scale_y_continuous(labels = c()) +
   labs(title = "Average Direct Effect",
@@ -374,7 +374,7 @@ ggplot(mediation_results) +
   theme_minimal() +
   theme(text = element_text(size = 18))
 
-ggplot(mediation_results) +
+ggplot(output_pres) +
   geom_boxplot(aes(ADE), fill="#bccbcb", outlier.shape = NA) + 
   scale_x_continuous(limits = c(lower_fence, upper_fence)) + 
   scale_y_continuous(labels = c()) +
