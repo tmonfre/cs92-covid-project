@@ -9,7 +9,7 @@ library(mediation)
 library(parallel) # Only if necessary.
 library(lme4) # IF we do random effects. 
 library(ggthemes)
-library(gridExtra)
+library(cowplot)
 
 
 full_dta <- read.csv("data/combined_data.csv")
@@ -196,7 +196,7 @@ toc() # 1260.281 sec elapsed. 21 minutes, approx.
 tic()
 rslt_senate <- senate_split %>%
   map(., med_models) # This works. 
-toc() # 1260.281 sec elapsed. 21 minutes, approx. 
+toc() # On Joseph's computer, took approx. 30-40 minutes 
 
 ##################################
 # EXAMPLE (re could be time or state/county)
@@ -317,7 +317,32 @@ avg_acme_senate <- output_senate %>%
             avg_tot = sum(total_weight) / sum(size),
             avg_prop = sum(prop_weight) / sum(size))
 
-quartiles_acme <- quantile(mediation_results$ACME)
+
+# Visualizations ----------------------------------------------------------
+
+## Example mediation plots for results section in paper
+# No mediating effect
+med_plot_1 <- ~plot(rslt_pres[[31]][[3]], 
+                    main="a. Georgia",
+                    cex.axis = 1.3,
+                    cex.main = 1.5) 
+# Partial mediating effect
+med_plot_2 <- ~plot(rslt_pres[[12]][[3]], 
+                    main="b. Illinois", 
+                    cex.axis = 1.3,
+                    cex.main = 1.5) 
+# Full mediating effect
+med_plot_3 <- ~plot(rslt_pres[[2]][[3]], 
+                    main="c. Arizona", 
+                    cex.axis = 1.3,
+                    cex.main = 1.5) 
+
+# Combine plots into one figure for use in paper (1333x333 png)
+plot_grid(med_plot_1, med_plot_2, med_plot_3, ncol=3)
+
+# Plot to show range of ACMEs in slide deck
+
+quartiles_acme <- quantile(avg_acme_pres$ACME)
 iqr_acme <- quartiles_acme[4] - quartiles_acme[2]
 lower_fence <- quartiles_acme[2] - (1.5 * iqr_acme)
 upper_fence <- quartiles_acme[4] + (1.5 * iqr_acme)
