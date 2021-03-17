@@ -25,10 +25,10 @@ dag1 <- dagify(Cases ~ cp + ur + ivr + s,
 # Run all code from here to line 60 to properly load path model
 tidydag <- dag1 %>% 
   tidy_dagitty() %>% 
-  dag_label(labels = c("Cases" = "COVID Cases",
+  dag_label(labels = c("Cases" = "COVID-19\n Cases",
                         "vmr" = "Voluntary\n Mobility\n Rate",
                         "cp" = "County\n Partisanship",
-                        "ur" = "Urban vs. Rural",
+                        "ur" = "Urban\n vs. Rural",
                         "ivr" = "Involuntary\n Mobility\n Rate",
                         "s" = "Seasonality",
                         "ld" = "Lockdowns"))
@@ -46,17 +46,22 @@ tidydag[[1]]$y = tidydag[[1]]$y_new
 tidydag[[1]] <- tidydag[[1]] %>%
   left_join(locations, by=c("to" = "name"))
 
-tidydag[[1]]$xend = tidydag[[1]]$x_new.y
-tidydag[[1]]$yend = tidydag[[1]]$y_new.y
+tidydag[[1]]$xend <- ifelse(tidydag[[1]]$x_new.y < tidydag[[1]]$x_new.x, 
+                            tidydag[[1]]$x_new.y + 0.0225, 
+                            tidydag[[1]]$x_new.y - 0.0225)
 
+tidydag[[1]]$yend <- ifelse(tidydag[[1]]$y_new.y == tidydag[[1]]$y_new.x, tidydag[[1]]$y_new.y,
+                            ifelse(tidydag[[1]]$y_new.y < tidydag[[1]]$y_new.x,
+                                   tidydag[[1]]$y_new.y + 0.005,
+                                   tidydag[[1]]$y_new.y - 0.005))
+
+# Generate path model used in the final paper
 tidydag %>%
   mutate(linetype = ifelse(direction == "<->", "dashed", "solid")) %>% 
 ggplot(aes(x = x, y = y, xend = xend, yend = yend)) + 
-  geom_dag_point() + 
-  # geom_dag_text() +
-  geom_dag_label_repel(aes(label = label)) +
-  geom_dag_edges(aes(edge_linetype = linetype), 
-                 show.legend = FALSE) +
+  geom_dag_edges(aes(edge_linetype = linetype), show.legend = FALSE) + 
+  geom_dag_point(size = 32) + 
+  geom_dag_text(aes(label=label), size = 3.75) +
   theme_dag()
 
 # Generate plot of path model
